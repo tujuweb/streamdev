@@ -1,4 +1,5 @@
-<% layout('layout') -%>  <div class="grid grid-cols-2 md:hidden gap-3 mb-6">
+<% layout('layout') -%>
+  <div class="grid grid-cols-2 md:hidden gap-3 mb-6">
     <div class="bg-gray-800 rounded-lg p-4 shadow-md">
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-sm font-semibold">Active Streams</h3>
@@ -123,7 +124,8 @@
         </div>
       </div>
     </div>
-  </div>  <div class="mt-8">
+  </div>
+  <div class="mt-8">
     <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
       <h2 class="text-xl font-bold">Streaming Status</h2>
       <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -272,15 +274,15 @@
                     </div>
                   </div>                
                 </div>
-                <div class="flex items-center justify-between">
-                  <label class="text-sm text-gray-300">Loop Video</label>
-                  <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="loopVideo" class="sr-only peer" checked>
-                    <div class="w-11 h-6 bg-dark-700 rounded-full peer peer-checked:bg-primary"></div>
-                    <div
-                      class="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5">
-                    </div>
-                  </label>
+                <!-- MODIFIED: Loop Video Checkbox to Text Input -->
+                <div>
+                  <label for="loopVideo" class="text-sm font-medium text-white block mb-2">Jumlah Loop Video</label>
+                  <input type="number" name="loopVideo" id="loopVideo" value="-1"
+                    class="w-full px-4 py-2.5 bg-dark-700 border border-gray-600 rounded-lg focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="e.g., -1 untuk unlimited, 0 untuk tanpa loop">
+                  <p class="text-xs text-gray-500 mt-1.5">
+                    <i class="ti ti-info-circle mr-1"></i>-1 = Unlimited, 0 = Tanpa Loop, 1, 2, ... = Jumlah Loop
+                  </p>
                 </div>
                 <div class="lg:hidden bg-dark-900 rounded-lg overflow-hidden">
                   <div class="aspect-video bg-dark-900">
@@ -549,15 +551,15 @@
                     </div>
                   </div>
                 </div>                
-                <div class="flex items-center justify-between">
-                  <label class="text-sm text-gray-300">Loop Video</label>
-                  <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="loopVideo" id="editLoopVideo" class="sr-only peer" checked>
-                    <div class="w-11 h-6 bg-dark-700 rounded-full peer peer-checked:bg-primary"></div>
-                    <div
-                      class="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5">
-                    </div>
-                  </label>
+                <!-- MODIFIED: Loop Video Checkbox to Text Input -->
+                <div>
+                  <label for="editLoopVideo" class="text-sm font-medium text-white block mb-2">Jumlah Loop Video</label>
+                  <input type="number" name="loopVideo" id="editLoopVideo"
+                    class="w-full px-4 py-2.5 bg-dark-700 border border-gray-600 rounded-lg focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="e.g., -1 untuk unlimited, 0 untuk tanpa loop">
+                  <p class="text-xs text-gray-500 mt-1.5">
+                    <i class="ti ti-info-circle mr-1"></i>-1 = Unlimited, 0 = Tanpa Loop, 1, 2, ... = Jumlah Loop
+                  </p>
                 </div>
                 <div class="lg:hidden bg-dark-900 rounded-lg overflow-hidden">
                   <div class="aspect-video bg-dark-900">
@@ -787,7 +789,8 @@
         </div>
       </div>
     </div>
-  </div>  <style>
+  </div>
+  <style>
     .video-js {
       background-color: #1f2937;
       width: 100%;
@@ -1175,7 +1178,7 @@
         streamKey: document.getElementById('streamKey').value,
         bitrate: document.querySelector('select[name="bitrate"]').value,
         fps: document.querySelector('select[name="fps"]').value,
-        loopVideo: document.querySelector('input[name="loopVideo"]').checked,
+        loop_video: document.getElementById('loopVideo').value, // MODIFIED: Get value from number input
         orientation: currentOrientation,
         resolution: document.getElementById('currentResolution').textContent.split(' ')[0],
         useAdvancedSettings: document.getElementById('advancedSettingsToggle').checked
@@ -1434,6 +1437,19 @@
             formattedDuration = `${stream.duration} min`;
           }
         }
+        
+        // MODIFIED: Logic to display loop count
+        let loopDisplay = '';
+        if (stream.loop_video !== null && typeof stream.loop_video !== 'undefined') {
+          if (stream.loop_video == -1) {
+            loopDisplay = 'Unlimited';
+          } else if (stream.loop_video == 0) {
+            loopDisplay = 'Tanpa Loop';
+          } else {
+            loopDisplay = `${stream.loop_video}x`;
+          }
+        }
+
         card.innerHTML = `        
         <div class="relative">
           <div class="bg-dark-700 aspect-video relative">
@@ -1460,10 +1476,16 @@
           <div class="text-xs text-gray-400 mb-2">
             ${settingsDisplay}
           </div>
+          <!-- MODIFIED: Display loop and duration -->
           <div class="flex items-center text-sm text-gray-400 mb-2">
             <i class="ti ti-clock mr-1.5"></i>
             <span>Duration: ${formattedDuration}</span>
-          </div>          
+            ${loopDisplay ? `
+              <span class="mx-2">•</span>
+              <i class="ti ti-repeat mr-1"></i>
+              <span>LOOP: <strong class="font-semibold">${loopDisplay}</strong></span>
+            ` : ''}
+          </div>       
           ${stream.status === 'scheduled' ? `
           <div class="flex items-center text-sm text-gray-400 mb-3">
             <i class="ti ti-calendar mr-1.5"></i>
@@ -1506,6 +1528,19 @@
           const videoFps = stream.video_fps || stream.fps || '30';
           settingsDisplay = `${videoRes} • ${videoBitrate} kbps • ${videoFps} FPS`;
         }
+        
+        // MODIFIED: Logic to display loop count
+        let loopDisplay = '';
+        if (stream.loop_video !== null && typeof stream.loop_video !== 'undefined') {
+          if (stream.loop_video == -1) {
+            loopDisplay = 'LOOP: Unlimited';
+          } else if (stream.loop_video == 0) {
+            loopDisplay = 'LOOP: Tanpa Loop';
+          } else {
+            loopDisplay = `LOOP: ${stream.loop_video}x`;
+          }
+        }
+
         let durationDisplay = '';
         let statusBadge = '';
         if (stream.status === 'live' && stream.start_time) {
@@ -1543,7 +1578,8 @@
             </div>
             <div>
               <div class="text-sm font-medium">${stream.title}</div>
-              <div class="text-xs text-gray-400">${settingsDisplay}</div>
+              <!-- MODIFIED: Display loop count under stream name -->
+              <div class="text-xs text-gray-400">${settingsDisplay}${loopDisplay ? ` • <span class="text-green-400 font-medium">${loopDisplay}</span>` : ''}</div>
             </div>
           </div>
         </td>
@@ -1984,7 +2020,9 @@
           selectEditVideo(videoData);
         }
       }
-      document.getElementById('editLoopVideo').checked = stream.loop_video;
+      // MODIFIED: Set value of loop input
+      document.getElementById('editLoopVideo').value = stream.loop_video ?? -1;
+
       const bitrateSelect = document.getElementById('editBitrate');
       for (let i = 0; i < bitrateSelect.options.length; i++) {
         if (bitrateSelect.options[i].value == stream.bitrate) {
@@ -2307,7 +2345,7 @@
             streamKey: document.getElementById('editStreamKey').value,
             bitrate: document.getElementById('editBitrate').value,
             fps: document.getElementById('editFps').value,
-            loopVideo: document.getElementById('editLoopVideo').checked,
+            loop_video: document.getElementById('editLoopVideo').value, // MODIFIED: Get value from number input
             orientation: currentEditOrientation,
             resolution: document.getElementById('editCurrentResolution').textContent,
             useAdvancedSettings: document.getElementById('editAdvancedSettingsToggle').checked
