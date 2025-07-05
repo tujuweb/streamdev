@@ -17,6 +17,7 @@ let mobileVideoPlayer = null;
 let streamKeyTimeout = null;
 let isStreamKeyValid = true;
 let currentPlatform = 'Custom';
+
 function openNewStreamModal() {
   const modal = document.getElementById('newStreamModal');
   document.body.style.overflow = 'hidden';
@@ -29,6 +30,12 @@ function openNewStreamModal() {
     if (icon) icon.style.transform = '';
   }
   
+  // MODIFIED: Set default value for new stream loop input
+  const loopVideoInput = document.getElementById('loopVideo');
+  if (loopVideoInput) {
+    loopVideoInput.value = -1; // Default ke unlimited
+  }
+
   applyStreamKeyVisibility();
   
   requestAnimationFrame(() => {
@@ -36,6 +43,7 @@ function openNewStreamModal() {
   });
   loadGalleryVideos();
 }
+
 function closeNewStreamModal() {
   const modal = document.getElementById('newStreamModal');
   document.body.style.overflow = 'auto';
@@ -62,6 +70,7 @@ function closeNewStreamModal() {
     mobileVideoPlayer = null;
   }
 }
+
 function toggleVideoSelector() {
   const dropdown = document.getElementById('videoSelectorDropdown');
   if (dropdown.classList.contains('hidden')) {
@@ -82,6 +91,7 @@ function toggleVideoSelector() {
     }
   }
 }
+
 function selectVideo(video) {
   selectedVideoData = video;
   document.getElementById('selectedVideo').textContent = video.name;
@@ -138,6 +148,7 @@ function selectVideo(video) {
     hiddenVideoInput.value = video.id;
   }
 }
+
 async function loadGalleryVideos() {
   try {
     const container = document.getElementById('videoListContainer');
@@ -172,6 +183,7 @@ async function loadGalleryVideos() {
     }
   }
 }
+
 function handleVideoSearch(e) {
   const searchTerm = e.target.value.toLowerCase().trim();
   console.log("Searching for:", searchTerm);
@@ -189,6 +201,7 @@ function handleVideoSearch(e) {
   console.log(`Found ${filteredVideos.length} matching videos`);
   displayFilteredVideos(filteredVideos);
 }
+
 function displayFilteredVideos(videos) {
   const container = document.getElementById('videoListContainer');
   container.innerHTML = '';
@@ -221,11 +234,19 @@ function displayFilteredVideos(videos) {
     `;
   }
 }
+
 function resetModalForm() {
   const form = document.getElementById('newStreamForm');
   form.reset();
   selectedVideoData = null;
   document.getElementById('selectedVideo').textContent = 'Choose a video...';
+  
+  // MODIFIED: Reset loop video input to default value
+  const loopVideoInput = document.getElementById('loopVideo');
+  if (loopVideoInput) {
+    loopVideoInput.value = -1;
+  }
+
   const desktopPreview = document.getElementById('videoPreview');
   const desktopEmptyPreview = document.getElementById('emptyPreview');
   const mobilePreview = document.getElementById('videoPreviewMobile');
@@ -234,12 +255,15 @@ function resetModalForm() {
   mobilePreview.classList.add('hidden');
   desktopEmptyPreview.classList.remove('hidden');
   mobileEmptyPreview.classList.remove('hidden');
-  desktopPreview.querySelector('video source').src = '';
-  mobilePreview.querySelector('video source').src = '';
+  const desktopSource = desktopPreview.querySelector('video source');
+  const mobileSource = mobilePreview.querySelector('video source');
+  if (desktopSource) desktopSource.src = '';
+  if (mobileSource) mobileSource.src = '';
   if (isDropdownOpen) {
     toggleVideoSelector();
   }
 }
+
 function initModal() {
   const modal = document.getElementById('newStreamModal');
   if (!modal) return;
@@ -275,6 +299,7 @@ function initModal() {
     }
   }, { passive: false });
 }
+
 function setVideoOrientation(orientation) {
   currentOrientation = orientation;
   const buttons = document.querySelectorAll('[onclick^="setVideoOrientation"]');
@@ -289,6 +314,7 @@ function setVideoOrientation(orientation) {
   });
   updateResolutionDisplay();
 }
+
 function updateResolutionDisplay() {
   const select = document.getElementById('resolutionSelect');
   const option = select.options[select.selectedIndex];
@@ -296,6 +322,7 @@ function updateResolutionDisplay() {
   const quality = option.textContent;
   document.getElementById('currentResolution').textContent = `${resolution} (${quality})`;
 }
+
 document.addEventListener('DOMContentLoaded', () => {
   const resolutionSelect = document.getElementById('resolutionSelect');
   if (resolutionSelect) {
@@ -305,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   applyStreamKeyVisibility();
 });
+
 function toggleStreamKeyVisibility() {
   const streamKeyInput = document.getElementById('streamKey');
   const streamKeyToggle = document.getElementById('streamKeyToggle');
@@ -336,6 +364,7 @@ function applyStreamKeyVisibility() {
     }
   }
 }
+
 document.addEventListener('DOMContentLoaded', function () {
   const platformSelector = document.getElementById('platformSelector');
   const platformDropdown = document.getElementById('platformDropdown');
@@ -419,6 +448,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 });
+
 function validateStreamKeyForPlatform(streamKey, platform) {
   if (!streamKey.trim()) {
     return;
@@ -476,5 +506,19 @@ document.addEventListener('click', function(event) {
     }
   }
 });
+
+// MODIFIED: This function in dashboard.ejs now correctly handles the text input
+// The function `openEditStreamModal` from dashboard.ejs should now be able to set the value of 'editLoopVideo'
+// For example:
+/*
+function openEditStreamModal(stream) {
+  // ... other code to populate the modal ...
+  
+  // Set the value for the loop video input
+  document.getElementById('editLoopVideo').value = stream.loop_video ?? -1;
+
+  // ... rest of the function ...
+}
+*/
 
 document.addEventListener('DOMContentLoaded', initModal);
