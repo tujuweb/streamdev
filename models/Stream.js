@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { db } = require('../db/database');
+
 class Stream {
   static create(streamData) {
     const id = uuidv4();
@@ -14,16 +15,19 @@ class Stream {
       resolution,
       fps = 30,
       orientation = 'horizontal',
-      loop_video = true,
+      loop_video = -1, // DIUBAH: Default value sekarang -1 (unlimited)
       schedule_time = null,
       duration = null,
       use_advanced_settings = false,
       user_id
     } = streamData;
-    const loop_video_int = loop_video ? 1 : 0;
+
+    // DIHAPUS: Konversi boolean ke integer tidak diperlukan lagi
+    // const loop_video_int = loop_video ? 1 : 0; 
     const use_advanced_settings_int = use_advanced_settings ? 1 : 0;
     const status = schedule_time ? 'scheduled' : 'offline';
     const status_updated_at = new Date().toISOString();
+
     return new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO streams (
@@ -33,7 +37,7 @@ class Stream {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id, title, video_id, rtmp_url, stream_key, platform, platform_icon,
-          bitrate, resolution, fps, orientation, loop_video_int,
+          bitrate, resolution, fps, orientation, parseInt(loop_video, 10), // DIUBAH: Menggunakan nilai integer langsung
           schedule_time, duration, status, status_updated_at, use_advanced_settings_int, user_id
         ],
         function (err) {
@@ -46,6 +50,7 @@ class Stream {
       );
     });
   }
+
   static findById(id) {
     return new Promise((resolve, reject) => {
       db.get('SELECT * FROM streams WHERE id = ?', [id], (err, row) => {
@@ -54,13 +59,15 @@ class Stream {
           return reject(err);
         }
         if (row) {
-          row.loop_video = row.loop_video === 1;
+          // DIHAPUS: Konversi loop_video ke boolean tidak diperlukan lagi
+          // row.loop_video = row.loop_video === 1;
           row.use_advanced_settings = row.use_advanced_settings === 1;
         }
         resolve(row);
       });
     });
   }
+
   static findAll(userId = null, filter = null) {
     return new Promise((resolve, reject) => {
       let query = `
@@ -76,6 +83,7 @@ class Stream {
         LEFT JOIN videos v ON s.video_id = v.id
       `;
       const params = [];
+
       if (userId) {
         query += ' WHERE s.user_id = ?';
         params.push(userId);
@@ -89,7 +97,9 @@ class Stream {
           }
         }
       }
+
       query += ' ORDER BY s.created_at DESC';
+
       db.all(query, params, (err, rows) => {
         if (err) {
           console.error('Error finding streams:', err.message);
@@ -97,7 +107,8 @@ class Stream {
         }
         if (rows) {
           rows.forEach(row => {
-            row.loop_video = row.loop_video === 1;
+            // DIHAPUS: Konversi loop_video ke boolean tidak diperlukan lagi
+            // row.loop_video = row.loop_video === 1;
             row.use_advanced_settings = row.use_advanced_settings === 1;
           });
         }
@@ -105,21 +116,27 @@ class Stream {
       });
     });
   }
+
   static update(id, streamData) {
     const fields = [];
     const values = [];
+
+    // DIUBAH: Logika update disederhanakan, tidak ada perlakuan khusus untuk loop_video
     Object.entries(streamData).forEach(([key, value]) => {
-      if (key === 'loop_video' && typeof value === 'boolean') {
-        fields.push(`${key} = ?`);
-        values.push(value ? 1 : 0);
+      // Menangani konversi boolean untuk 'use_advanced_settings'
+      if (key === 'use_advanced_settings' && typeof value === 'boolean') {
+          fields.push(`${key} = ?`);
+          values.push(value ? 1 : 0);
       } else {
-        fields.push(`${key} = ?`);
-        values.push(value);
+          fields.push(`${key} = ?`);
+          values.push(value);
       }
     });
+
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
     const query = `UPDATE streams SET ${fields.join(', ')} WHERE id = ?`;
+
     return new Promise((resolve, reject) => {
       db.run(query, values, function (err) {
         if (err) {
@@ -130,6 +147,7 @@ class Stream {
       });
     });
   }
+
   static delete(id, userId) {
     return new Promise((resolve, reject) => {
       db.run(
@@ -145,6 +163,7 @@ class Stream {
       );
     });
   }
+
   static updateStatus(id, status, userId) {
     const status_updated_at = new Date().toISOString();
     let start_time = null;
@@ -181,6 +200,7 @@ class Stream {
       );
     });
   }
+
   static async getStreamWithVideo(id) {
     return new Promise((resolve, reject) => {
       db.get(
@@ -196,7 +216,8 @@ class Stream {
             return reject(err);
           }
           if (row) {
-            row.loop_video = row.loop_video === 1;
+            // DIHAPUS: Konversi loop_video ke boolean tidak diperlukan lagi
+            // row.loop_video = row.loop_video === 1;
             row.use_advanced_settings = row.use_advanced_settings === 1;
           }
           resolve(row);
@@ -204,6 +225,7 @@ class Stream {
       );
     });
   }
+
   static async isStreamKeyInUse(streamKey, userId, excludeId = null) {
     return new Promise((resolve, reject) => {
       let query = 'SELECT COUNT(*) as count FROM streams WHERE stream_key = ? AND user_id = ?';
@@ -221,6 +243,7 @@ class Stream {
       });
     });
   }
+
   static findScheduledInRange(startTime, endTime) {
     return new Promise((resolve, reject) => {
       const startTimeStr = startTime.toISOString();
@@ -248,7 +271,8 @@ class Stream {
         }
         if (rows) {
           rows.forEach(row => {
-            row.loop_video = row.loop_video === 1;
+            // DIHAPUS: Konversi loop_video ke boolean tidak diperlukan lagi
+            // row.loop_video = row.loop_video === 1;
             row.use_advanced_settings = row.use_advanced_settings === 1;
           });
         }
@@ -257,4 +281,5 @@ class Stream {
     });
   }
 }
+
 module.exports = Stream;
