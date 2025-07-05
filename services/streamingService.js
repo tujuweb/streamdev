@@ -5,6 +5,7 @@ const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const schedulerService = require('./schedulerService');
 const { v4: uuidv4 } = require('uuid');
 const { db } = require('../db/database');
+
 let ffmpegPath;
 if (fs.existsSync('/usr/bin/ffmpeg')) {
   ffmpegPath = '/usr/bin/ffmpeg';
@@ -13,6 +14,7 @@ if (fs.existsSync('/usr/bin/ffmpeg')) {
   ffmpegPath = ffmpegInstaller.path;
   console.log('Using bundled FFmpeg at:', ffmpegPath);
 }
+
 const Stream = require('../models/Stream');
 const Video = require('../models/Video');
 const activeStreams = new Map();
@@ -21,6 +23,7 @@ const streamRetryCount = new Map();
 const MAX_RETRY_ATTEMPTS = 3;
 const manuallyStoppingStreams = new Set();
 const MAX_LOG_LINES = 100;
+
 function addStreamLog(streamId, message) {
   if (!streamLogs.has(streamId)) {
     streamLogs.set(streamId, []);
@@ -34,6 +37,7 @@ function addStreamLog(streamId, message) {
     logs.shift();
   }
 }
+
 async function buildFFmpegArgs(stream) {
   const video = await Video.findById(stream.video_id);
   if (!video) {
@@ -52,31 +56,59 @@ async function buildFFmpegArgs(stream) {
     throw new Error('Video file not found on disk. Please check paths and file existence.');
   }
   const rtmpUrl = `${stream.rtmp_url.replace(/\/$/, '')}/${stream.stream_key}`;
-  const loopOption = stream.loop_video ? '-stream_loop' : '-stream_loop 0';
-  const loopValue = stream.loop_video ? '-1' : '0';
+
+  // ### START MODIFICATION ###
+  // Logika baru untuk menangani loop_video sebagai integer
+  const loopArgs = [];
+  const loopCount = parseInt(stream.loop_video, 10);
+
+  if (!isNaN(loopCount) && loopCount !== 0) {
+    // -1 berarti loop tak terbatas
+    // 1 berarti loop sekali (total 2 putaran), dst.
+    // FFmpeg: -stream_loop N, N adalah *jumlah loop tambahan*. 
+    // Jadi jika kita ingin 1 putaran total, loop = 0.
+    // Jika kita ingin 2 putaran total, loop = 1.
+    // Jika kita ingin N putaran total, loop = N-1.
+    // Jika unlimited, loop = -1.
+    
+    if (loopCount === -1) {
+        loopArgs.push('-stream_loop', '-1');
+    } else if (loopCount > 0) {
+        // Karena loopCount dari frontend adalah jumlah putaran TOTAL,
+        // kita perlu kurangi 1 untuk argumen -stream_loop.
+        // loopCount 1 = tanpa loop tambahan.
+        loopArgs.push('-stream_loop', (loopCount - 1).toString());
+    }
+    // Jika loopCount === 0, tidak ada argumen loop yang ditambahkan,
+    // yang berarti video tidak akan di-loop (diputar sekali).
+  }
+
+  let baseArgs = [
+    '-hwaccel', 'none',
+    '-loglevel', 'error',
+    '-re',
+    '-fflags', '+genpts+igndts',
+    ...loopArgs, // Argumen loop ditambahkan di sini
+    '-i', videoPath,
+  ];
+  // ### END MODIFICATION ###
+
   if (!stream.use_advanced_settings) {
     return [
-      '-hwaccel', 'none',
-      '-loglevel', 'error',
-      '-re',
-      '-fflags', '+genpts+igndts',
-      loopOption, loopValue,
-      '-i', videoPath,
+      ...baseArgs,
       '-c:v', 'copy',
       '-c:a', 'copy',
       '-f', 'flv',
       rtmpUrl
     ];
   }
+
   const resolution = stream.resolution || '1280x720';
   const bitrate = stream.bitrate || 2500;
   const fps = stream.fps || 30;
+  
   return [
-    '-hwaccel', 'none',
-    '-loglevel', 'error',
-    '-re',
-    loopOption, loopValue,
-    '-i', videoPath,
+    ...baseArgs,
     '-c:v', 'libx264',
     '-preset', 'veryfast',
     '-b:v', `${bitrate}k`,
@@ -93,6 +125,8 @@ async function buildFFmpegArgs(stream) {
     rtmpUrl
   ];
 }
+
+
 async function startStream(streamId) {
   try {
     streamRetryCount.set(streamId, 0);
