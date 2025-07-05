@@ -1,11 +1,15 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+
+// Direktori database
 const dbDir = path.join(__dirname);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 const dbPath = path.join(dbDir, 'streamflow.db');
+
+// Koneksi ke database
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error connecting to database:', err.message);
@@ -13,7 +17,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
     createTables();
   }
 });
+
 function createTables() {
+  // Tabel users (tidak ada perubahan)
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
@@ -27,6 +33,8 @@ function createTables() {
       console.error('Error creating users table:', err.message);
     }
   });
+
+  // Tabel videos (tidak ada perubahan)
   db.run(`CREATE TABLE IF NOT EXISTS videos (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -48,6 +56,8 @@ function createTables() {
       console.error('Error creating videos table:', err.message);
     }
   });
+
+  // Tabel streams (MODIFIKASI DI SINI)
   db.run(`CREATE TABLE IF NOT EXISTS streams (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -60,7 +70,7 @@ function createTables() {
     resolution TEXT,
     fps INTEGER DEFAULT 30,
     orientation TEXT DEFAULT 'horizontal',
-    loop_video BOOLEAN DEFAULT 1,
+    loop_video INTEGER DEFAULT -1, -- DIUBAH DARI BOOLEAN MENJADI INTEGER, DEFAULT -1 (UNLIMITED)
     schedule_time TIMESTAMP,
     duration INTEGER,
     status TEXT DEFAULT 'offline',
@@ -78,6 +88,8 @@ function createTables() {
       console.error('Error creating streams table:', err.message);
     }
   });  
+
+  // Tabel stream_history (tidak ada perubahan)
   db.run(`CREATE TABLE IF NOT EXISTS stream_history (
     id TEXT PRIMARY KEY,
     stream_id TEXT,
@@ -106,11 +118,16 @@ function createTables() {
     }
   });
 
+  // Migrasi yang sudah ada (tidak ada perubahan)
   db.run(`ALTER TABLE stream_history ADD COLUMN stream_key TEXT`, (err) => {
+    // Abaikan error 'duplicate column'
   });
   
   db.run(`ALTER TABLE stream_history ADD COLUMN rtmp_url TEXT`, (err) => {
+    // Abaikan error 'duplicate column'
   });
+
+  // Tabel video_analytics (tidak ada perubahan)
   db.run(`CREATE TABLE IF NOT EXISTS video_analytics (
     id TEXT PRIMARY KEY,
     video_id TEXT NOT NULL,
@@ -134,6 +151,30 @@ function createTables() {
       console.error('Error creating video_analytics table:', err.message);
     } else {
       migrateVideoAnalyticsTable();
+    }
+  });
+
+  // Fungsi untuk migrasi kolom loop_video secara aman
+  // Ini akan menambahkan kolom baru jika belum ada dan memigrasikan data lama
+  db.all("PRAGMA table_info(streams)", (err, columns) => {
+    if (err) {
+      console.error("Error checking streams table columns:", err);
+      return;
+    }
+    const hasOldLoopVideo = columns.some(col => col.name === 'loop_video' && col.type === 'BOOLEAN');
+    if (hasOldLoopVideo) {
+      // Jika kolom lama masih BOOLEAN, kita perlu proses migrasi yang lebih hati-hati
+      console.log("Old 'loop_video' column detected. Attempting migration...");
+      db.serialize(() => {
+        db.run("ALTER TABLE streams RENAME TO streams_old", (err) => { if(err) console.error("Migration step 1 failed:", err)});
+        createTables(); // Panggil lagi untuk membuat tabel baru dengan skema yang benar
+        db.run(`INSERT INTO streams (id, title, video_id, rtmp_url, stream_key, platform, platform_icon, bitrate, resolution, fps, orientation, loop_video, schedule_time, duration, status, status_updated_at, start_time, end_time, use_advanced_settings, created_at, updated_at, user_id)
+                SELECT id, title, video_id, rtmp_url, stream_key, platform, platform_icon, bitrate, resolution, fps, orientation, 
+                       CASE WHEN loop_video = 1 THEN -1 ELSE 0 END, -- Logika konversi
+                       schedule_time, duration, status, status_updated_at, start_time, end_time, use_advanced_settings, created_at, updated_at, user_id
+                FROM streams_old`, (err) => { if(err) console.error("Migration step 3 failed:", err)});
+        db.run("DROP TABLE streams_old", (err) => { if(err) console.error("Migration step 4 failed:", err)});
+      });
     }
   });
 }
@@ -170,6 +211,8 @@ function checkIfUsersExist() {
     });
   });
 }
+
+// Export semua fungsi yang sudah ada
 module.exports = {
   db,
   checkIfUsersExist,
@@ -220,7 +263,7 @@ module.exports = {
       );
     });
   },
-    getUserAnalyticsVideos: (userId) => {
+  getUserAnalyticsVideos: (userId) => {
     return new Promise((resolve, reject) => {
       db.all(
         `SELECT video_id, title, thumbnail, channel_name, upload_date, 
